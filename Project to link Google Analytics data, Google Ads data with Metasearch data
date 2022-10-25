@@ -1,0 +1,95 @@
+*\ Query to connect Google analytics data, Google Ads data and Meta search data and Create new view *\
+
+WITH
+  GA_NO_METASEARCH AS (
+  SELECT
+    ga.date,
+    TRIM(LOWER(ga.campaign)) campaign,
+    LOWER(ga.hotel_name)hotel_name,
+    LOWER(ga.source_medium)source_medium,
+    SUM(COALESCE(ga.cost, 0)) cost,
+    SUM(COALESCE(ga.clicks, 0)) clicks,
+    SUM(COALESCE(ga.transaction_revenue, 0)) revenue,
+    SUM(COALESCE(ga.transactions, 0)) transactions,
+    SUM(COALESCE(ga.sessions, 0)) sessions,
+    SUM(COALESCE(ga.impressions, 0)) impressions,
+    SUM(COALESCE(ga.bounces, 0)) bounces,
+    SUM(COALESCE(ga.booking_engine_entrances, 0)) booking_engine_entrances,
+    SUM(COALESCE(ga.goal_completions, 0)) goal_completions,
+    SUM(COALESCE(ga.assisted_conversions, 0)) assisted_conversions,
+    SUM(COALESCE(ga.assisted_conversion_value, 0)) assisted_conversion_value
+  FROM
+    `production-verb.hotel_crescent.base_funnelio_data` ga
+  WHERE
+    campaign != 'derbysoft'
+  GROUP BY
+    1,
+    2,
+    3,
+    4 ),
+  GA_ONLY_METASEARCH AS (
+  SELECT
+    ga.date,
+    TRIM(LOWER(ga.campaign)) campaign,
+    LOWER(ga.hotel_name)hotel_name,
+    LOWER(ga.source_medium)source_medium,
+    0 cost,
+    0 clicks,
+    0 revenue,
+    0 transactions,
+    SUM(COALESCE(ga.sessions, 0)) sessions,
+    0 impressions,
+    SUM(COALESCE(ga.bounces, 0)) bounces,
+    0 booking_engine_entrances,
+    0 goal_completions,
+    0 assisted_conversions,
+    0 assisted_conversion_value
+  FROM
+    `production-verb.hotel_crescent.base_funnelio_data` ga
+  WHERE
+    campaign = 'derbysoft'
+  GROUP BY
+    1,
+    2,
+    3,
+    4),
+  DERBYSOFT AS (
+  SELECT
+    d.Date date,
+    'derbysoft' campaign,
+    LOWER(d.Hotel_name) hotel_name,
+    CONCAT(LOWER(d.Channel), ' / derbysoft') source_medium,
+    SUM(COALESCE(d.Cost,0))cost,
+    SUM(COALESCE(d.Clicks,0))clicks,
+    SUM(COALESCE(d.Revenue,0))revenue,
+    SUM(COALESCE(d.Bookings,0))transactions,
+    0 sessions,
+    SUM(COALESCE(d.impressions,0))impressions,
+    0 bounces,
+    0 booking_engine_entrances,
+    0 goal_completions,
+    0 assisted_conversions,
+    0 assisted_conversion_value
+  FROM
+    `production-verb.hotel_metasearch.base_table_derbysoft` d
+  WHERE
+    d.Hotel_name = 'Hotel Vinache'
+  GROUP BY
+    1,
+    2,
+    3,
+    4 )
+SELECT
+  *
+FROM
+  GA_NO_METASEARCH
+UNION ALL
+SELECT
+  *
+FROM
+  GA_ONLY_METASEARCH
+UNION ALL
+SELECT
+  *
+FROM
+  DERBYSOFT
